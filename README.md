@@ -85,7 +85,7 @@ enable=yes
 sub_forced_only=no
 ```
 
-##### 4. In autoselect-forced-sub-next.lua
+##### 4. In autoselect-forced-sub.lua
 
 The options are located at the beginning of the script, below `our_opts =`.
 
