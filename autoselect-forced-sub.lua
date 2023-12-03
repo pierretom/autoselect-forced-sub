@@ -1,3 +1,10 @@
+require "mp.options"
+
+our_opts = {
+    enable = true,
+    sub_forced_only = true
+}
+
 function get_all_subs()
     local track_list = mp.get_property_native("track-list")
     local subcount = 0
@@ -123,7 +130,7 @@ function search_forced_sub()
     end
 
     if #forced_flag > 0 then
-        if user_sub_lang[1] ~= "auto" then
+        if user_sub_lang[1] then
             for i = 1, #forced_flag do
                 for j = 1, #user_sub_lang do
                     if user_sub_lang[j] and forced_flag[i][2] then
@@ -147,7 +154,7 @@ function search_forced_sub()
                     if string.find(string.lower(possible_forced_title[i][3]), string.lower(value)) then
                         table.insert(forced_title, {possible_forced_title[i][1], possible_forced_title[i][2], possible_forced_title[i][3]})
 
-                        if user_sub_lang[1] ~= "auto" then
+                        if user_sub_lang[1] then
                             for j = 1, #user_sub_lang do
                                 if user_sub_lang[j] and possible_forced_title[i][2] then
                                     if string.lower(user_sub_lang[j]) == string.lower(possible_forced_title[i][2]) then
@@ -225,7 +232,7 @@ function search_non_forced_sub()
         select_sid(sid, "First ID", slang, stitle)
     end
 
-    if user_sub_lang[1] ~= "auto" then
+    if user_sub_lang[1] then
         if #default_flag > 0 then
             for i = 1, #default_flag do
                 for j = 1, #user_sub_lang do
@@ -302,34 +309,55 @@ end
 function main()
     if get_all_subs() then
         if search_forced_sub() then
+            mp.set_property_bool("sub-forced-events-only", false)
             return
-        elseif mp.get_property("sub-forced-only") == "yes" or
-               mp.get_property("sub-forced-only") == "auto"
-        then
+        elseif our_opts.sub_forced_only then
             if mp.get_property_bool("current-tracks/sub/selected") then
                 mp.set_property("sid", "no")
             end
-            print("Not found only forced subtitles. Try with --sub-forced-only=no.")
+            print("Not found only forced subtitles. Try with --script-opts=afs-sub_forced_only=no.")
             return
         else
             search_non_forced_sub()
+            mp.set_property_bool("sub-forced-events-only", false)
         end
     else --No subs, bye.
         return
     end
 end
 
-function on_update(enable_script)
-    if enable_script then
+function on_update_our_opts(list)
+    if list.enable and our_opts.enable then
         mp.register_event("file-loaded", main)
-        if not event_init then
-            print("Script enabled.")
+
+        if mp.get_property_bool("track-auto-selection") then
+            if event_init then
+                event_init = false
+            else
+                print("Script enabled.")
+            end
+        else
+            mp.set_property_bool("track-auto-selection", true)
+            print("track-auto-selection and script enabled.")
         end
-    else
+    end
+
+    if list.enable and not our_opts.enable then
         mp.unregister_event(main)
-        if not event_init then
+
+        if event_init then
+            event_init = false
+        else
             print("Script disabled.")
         end
+    end
+
+    if list.sub_forced_only and our_opts.sub_forced_only then
+        print("Only forced subtitles enabled.")
+    end
+
+    if list.sub_forced_only and not our_opts.sub_forced_only then
+        print("Only forced subtitles disabled.")
     end
 end
 
@@ -339,10 +367,8 @@ function on_update_tas(prop_name, value)
         return
     end
 
-    if value then
-        on_update(true)
-    else
-        on_update(false)
+    if not value and our_opts.enable then
+        mp.commandv("change-list", "script-opts", "append", "afs-enable=no")
     end
 end
 
@@ -350,11 +376,18 @@ end
 event_init = true
 tas_init = true
 
-if  mp.get_property_bool("track-auto-selection") and
+read_options(our_opts, "afs", function(list) on_update_our_opts(list) end)
+
+if  our_opts.enable and
+    mp.get_property_bool("track-auto-selection") and
     mp.get_property("sid") == "auto"
 then
-    on_update(true)
+    on_update_our_opts({enable=true})
+elseif not our_opts.enable then --For event_init only
+    our_opts.enable = false
+    on_update_our_opts({enable=true})
+else --For event_init only
+    mp.commandv("change-list", "script-opts", "append", "afs-enable=no") --Ran async
 end
 
-event_init = false
 mp.observe_property("track-auto-selection", "bool", on_update_tas)
