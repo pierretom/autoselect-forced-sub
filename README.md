@@ -6,8 +6,6 @@ Forced subtitles are a type of subtitle that must be provided in a video just to
 
 The script does not download any subtitles and will also do nothing if no subtitles are available.
 
-If you are using the current master branch of mpv, [read this](https://github.com/pierretom/autoselect-forced-sub/tree/next) for the rest.
-
 ## Installation
 
 Use `autoselect-forced-sub.lua` for the stable version of mpv (0.36.x).
