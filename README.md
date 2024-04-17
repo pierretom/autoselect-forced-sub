@@ -8,7 +8,7 @@ The script does not download any subtitles and will also do nothing if no subtit
 
 ## Installation
 
-Use `autoselect-forced-sub.lua` for the stable version of mpv (0.37.x).
+Use `autoselect-forced-sub.lua` for mpv versions >= 0.37.x ([see here](https://github.com/pierretom/autoselect-forced-sub/tree/mpv-0.36.x) for older versions).
 
 Place it in the corresponding mpv `scripts` folder of your operating system:
 * Linux & BSD:
