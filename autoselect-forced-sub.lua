@@ -1,18 +1,24 @@
 require "mp.options"
 
-our_opts = {
+-- Global variables
+local our_opts = {
     enable = true,
     sub_forced_only = true
 }
 
-function get_all_subs()
+local event_init = true
+local tas_init = true
+local forced_flag = {}
+local possible_forced_title = {}
+local default_flag = {}
+local other_subs = {}
+local first_sub = {}
+local forced_title_trans = {}
+--
+
+local function get_all_subs()
     local track_list = mp.get_property_native("track-list")
     local subcount = 0
-    forced_flag = {}
-    possible_forced_title = {}
-    default_flag = {}
-    other_subs = {}
-    first_sub = {}
 
     for i = 1, #track_list do
         if track_list[i].type == "sub" then
@@ -47,7 +53,7 @@ function get_all_subs()
     end
 end
 
-function select_sid(sid, ssby, slang, stitle)
+local function select_sid(sid, ssby, slang, stitle)
     local title, lang
 
     if mp.get_property_number("current-tracks/sub/id") ~= sid then
@@ -74,34 +80,34 @@ end
 
 local function get_forced_title_trans()
     forced_title_trans = {
-afr="gedwonge",alb="të detyruar",amh="የግዳጅ",ara="القسرية",arm="հարկադիր",asm="জোৰকৈ",
-aym="forzado",aze="məcburi",bam="fanga la",baq="behartua",bel="прымусовыя",
-ben="জোর করে",bho="जबरन",bos="prisilni",bul="принудени",cat="forçat",ceb="pinugos nga",
-nya="mokakamiza",chi="强制",zho="強製",cos="forzatu",hrv="prisilni",cze="vynucený",
-dan="tvungen",div="މަޖުބޫރުކޮށްގެން",doi="जबरन",dut="geforceerde",eng="forced",epo="devigita",
-est="sunnitud",ewe="wozi ame dzi",fil="sapilitang",fin="pakotettu",fre="forcé",
-fry="twongen",glg="forzados",qeo="იძულებითი",ger="erzwungener",gre="αναγκαστικός",
-grn="forzado",guj="ફરજિયાત",hat="fòse",hau="tilasta",haw="paʻa",heb="כפויה",
-hin="जबरन",hmn="yuam",hun="kényszerű",ice="þvingaður",ibo="mmanye",ilo="napilit",
-ind="paksa",gle="éigean",ita="forzato",jpn="強制",jav="dipeksa",kan="ಬಲವಂತದ",
-kaz="мәжбүрлі",khm="ងដោយបង្ខំ",kin="gahato",kok="जबरदस्तीन",kor="강제",kri="fos",
-kur="zorê",ku="زۆرەملێ",kir="мажбурлап",lao="ບັງຄັບ",lat="coactus",lav="piespiedu",
-lin="ya makasi",lit="priverstinis",lug="okukaka",ltz="gezwongen",mac="принуден",
-mai="जबरदस्ती",mlg="an-tery",may="paksa",mal="നിർബന്ധിത",mlt="sfurzat",mao="takoha",
-mar="सक्तीचे",mni="ꯐꯣꯔꯁ ꯇꯧꯔꯕꯥ",lus="nawr luih tir a ni",mon="албадан",bur="အတင်းအကြပ်",
-nep="जबरजस्ती",nor="tvungen",ori="ବାଧ୍ୟତାମୂଳକ",orm="dirqisiifame",pus="جبري",per="اجباری",
-pol="wymuszony",por="forçada",pan="ਜ਼ਬਰਦਸਤੀ",que="obligado",rum="forțată",
-rus="принудительные",smo="fa'amalosi",san="बलात्",gla="èiginneach",nso="kgapeletšo",
-srp="присилни",sot="qobelletsoeng",sna="kumanikidzwa",snd="زبردستي",sin="බලහත්කාර",
-slo="vynútený",slv="vsiljen",som="qasab",spa="forzado",sun="kapaksa",swa="kulazimishwa",
-swe="påtvingad",tgk="маҷбурӣ",tam="கட்டாய",tat="мәҗбүри",tel="బలవంతంగా",tha="ายบังคับ",
-tir="ግዱድ",tso="ku sindzisiwa",tur="zorunlu",tuk="mejbury",twi="wɔhyɛ",ukr="примусові",
-urd="زبردستی",uig="مەجبۇر",uzb="majburiy",vie="bắt buộc",wel="gorfodol",
-xho="esinyanzelweyo",yid="געצווונגען",yor="fi agbara mu",zul="ophoqelelwe"
+        afr="gedwonge",alb="të detyruar",amh="የግዳጅ",ara="القسرية",arm="հարկադիր",
+        asm="জোৰকৈ", aym="forzado",aze="məcburi",bam="fanga la",baq="behartua", bel="прымусовыя",
+        ben="জোর করে",bho="जबरन",bos="prisilni",bul="принудени",cat="forçat",ceb="pinugos nga",
+        nya="mokakamiza",chi="强制",zho="強製",cos="forzatu",hrv="prisilni",cze="vynucený",
+        dan="tvungen",div="މަޖުބޫރުކޮށްގެން",doi="जबरन",dut="geforceerde",eng="forced",epo="devigita",
+        est="sunnitud",ewe="wozi ame dzi",fil="sapilitang",fin="pakotettu",fre="forcé",
+        fry="twongen",glg="forzados",qeo="იძულებითი",ger="erzwungener",gre="αναγκαστικός",
+        grn="forzado",guj="ફરજિયાત",hat="fòse",hau="tilasta",haw="paʻa",heb="כפויה",
+        hin="जबरन",hmn="yuam",hun="kényszerű",ice="þvingaður",ibo="mmanye",ilo="napilit",
+        ind="paksa",gle="éigean",ita="forzato",jpn="強制",jav="dipeksa",kan="ಬಲವಂತದ",
+        kaz="мәжбүрлі",khm="ងដោយបង្ខំ",kin="gahato",kok="जबरदस्तीन",kor="강제",kri="fos",
+        kur="zorê",ku="زۆرەملێ",kir="мажбурлап",lao="ບັງຄັບ",lat="coactus",lav="piespiedu",
+        lin="ya makasi",lit="priverstinis",lug="okukaka",ltz="gezwongen",mac="принуден",
+        mai="जबरदस्ती",mlg="an-tery",may="paksa",mal="നിർബന്ധിത",mlt="sfurzat",mao="takoha",
+        mar="सक्तीचे",mni="ꯐꯣꯔꯁ ꯇꯧꯔꯕꯥ",lus="nawr luih tir a ni",mon="албадан",bur="အတင်းအကြပ်",
+        nep="जबरजस्ती",nor="tvungen",ori="ବାଧ୍ୟତାମୂଳକ",orm="dirqisiifame",pus="جبري",
+        per="اجباری",pol="wymuszony",por="forçada",pan="ਜ਼ਬਰਦਸਤੀ",que="obligado",rum="forțată",
+        rus="принудительные",smo="fa'amalosi",san="बलात्",gla="èiginneach",nso="kgapeletšo",
+        srp="присилни",sot="qobelletsoeng",sna="kumanikidzwa",snd="زبردستي",sin="බලහත්කාර",
+        slo="vynútený",slv="vsiljen",som="qasab",spa="forzado",sun="kapaksa",swa="kulazimishwa",
+        swe="påtvingad",tgk="маҷбурӣ",tam="கட்டாய",tat="мәҗбүри",tel="బలవంతంగా",tha="ายบังคับ",
+        tir="ግዱድ",tso="ku sindzisiwa",tur="zorunlu",tuk="mejbury",twi="wɔhyɛ",ukr="примусові",
+        urd="زبردستی",uig="مەجبۇر",uzb="majburiy",vie="bắt buộc",wel="gorfodol",
+        xho="esinyanzelweyo",yid="געצווונגען",yor="fi agbara mu",zul="ophoqelelwe"
     }
 end
 
-function search_forced_sub()
+local function search_forced_sub()
     local user_sub_lang = mp.get_property_native("slang")
     local forced_title = {}
 
@@ -148,12 +154,10 @@ function search_forced_sub()
         get_forced_title_trans()
 
         for i = 1, #possible_forced_title do
-            for index,value in next,forced_title_trans do
-
+            for _,value in pairs(forced_title_trans) do
                 if possible_forced_title[i][3] then
                     if string.find(string.lower(possible_forced_title[i][3]), string.lower(value)) then
                         table.insert(forced_title, {possible_forced_title[i][1], possible_forced_title[i][2], possible_forced_title[i][3]})
-
                         if user_sub_lang[1] then
                             for j = 1, #user_sub_lang do
                                 if user_sub_lang[j] and possible_forced_title[i][2] then
@@ -209,7 +213,7 @@ function search_forced_sub()
     end
 end
 
-function search_non_forced_sub()
+local function search_non_forced_sub()
     local user_sub_lang = mp.get_property_native("slang")
 
     local function found_lang_default_flag(sid, slang, stitle)
@@ -306,7 +310,7 @@ function search_non_forced_sub()
     return false
 end
 
-function main()
+local function main()
     if get_all_subs() then
         if search_forced_sub() then
             mp.set_property_bool("sub-forced-events-only", false)
@@ -321,12 +325,12 @@ function main()
             search_non_forced_sub()
             mp.set_property_bool("sub-forced-events-only", false)
         end
-    else --No subs, bye.
+    else -- No subs, bye
         return
     end
 end
 
-function on_update_our_opts(list)
+local function on_update_our_opts(list)
     if list.enable and our_opts.enable then
         mp.register_event("file-loaded", main)
 
@@ -361,8 +365,8 @@ function on_update_our_opts(list)
     end
 end
 
-function on_update_tas(prop_name, value)
-    if tas_init then --Skip initial change notification
+local function on_update_tas(prop_name, value)
+    if tas_init then -- Skip initial change notification
         tas_init = false
         return
     end
@@ -372,10 +376,7 @@ function on_update_tas(prop_name, value)
     end
 end
 
---Startup
-event_init = true
-tas_init = true
-
+-- Startup
 read_options(our_opts, "afs", function(list) on_update_our_opts(list) end)
 
 if  our_opts.enable and
@@ -383,11 +384,11 @@ if  our_opts.enable and
     mp.get_property("sid") == "auto"
 then
     on_update_our_opts({enable=true})
-elseif not our_opts.enable then --For event_init only
+elseif not our_opts.enable then -- For event_init only
     our_opts.enable = false
     on_update_our_opts({enable=true})
-else --For event_init only
-    mp.commandv("change-list", "script-opts", "append", "afs-enable=no") --Ran async
+else -- For event_init only
+    mp.commandv("change-list", "script-opts", "append", "afs-enable=no") -- Ran async
 end
 
 mp.observe_property("track-auto-selection", "bool", on_update_tas)
