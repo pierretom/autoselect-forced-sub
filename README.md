@@ -37,12 +37,15 @@ This script uses some [mpv options](#mpv) and its [own options](#script).
 
 #### Notes
 
-1. When setting up `--slang`, for better results, use [ISO 639-1, 639-2/T and 639-2/B codes](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes).<br />
+1. When setting up `--slang`, for better results, use [ISO 639-1, 639-2/T and 639-2/B codes](https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes). The script will try to search the exact code, the order is taken into account, if not found it will try to search the code in character strings.<br />
 Examples:
    * `--slang=ja,jpn,en,eng`
    * `--slang=es,spa`
-   * `--slang=fr,fre,fra`
-   * `--slang=sq,alb,sqi`
+   * `--slang=fr,fra,fre`
+   * `--slang=sq,sqi,alb`
+
+   Multi-component languages are also supported, the following will search for Brazilian Portuguese subtitles then the `por` code. If not found it will search for `pt` then `por` in character strings (e.g. a track with the language `pt-PT`, `pt-AO` or `pt-CV` will match):
+   * `--slang=pt-BR,por`
 
 2. All other mpv options are ignored.
 
@@ -87,7 +90,7 @@ sub_forced_only=no
 
 ##### 4. In autoselect-forced-sub.lua
 
-The options are located at the beginning of the script, below `local our_opts = ...`.
+The options are located at the beginning of the script, below `local our_opts =...`
 
 ```
 enable = true

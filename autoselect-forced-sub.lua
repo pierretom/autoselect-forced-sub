@@ -1,6 +1,7 @@
 require "mp.options"
 
 -- Global variables
+
 local our_opts = {
     enable = true,
     sub_forced_only = true
@@ -14,6 +15,10 @@ local default_flag = {}
 local other_subs = {}
 local first_sub = {}
 local forced_title_trans = {}
+local user_sub_lang = {}
+local selected_audio_lang = {}
+local ret_i = 0
+
 --
 
 local function get_all_subs()
@@ -76,6 +81,16 @@ local function select_sid(sid, ssby, slang, stitle)
     else
         print("Displaying subtitle ID "..sid)
     end
+
+    -- Reset global tables
+    forced_flag = {}
+    possible_forced_title = {}
+    default_flag = {}
+    other_subs = {}
+    first_sub = {}
+    forced_title_trans = {}
+    user_sub_lang = {}
+    selected_audio_lang = {}
 end
 
 local function get_forced_title_trans()
@@ -107,8 +122,76 @@ local function get_forced_title_trans()
     }
 end
 
+local function is_matching_lang(src_lang, sub_table)
+    --[[
+    src_lang:
+        1 = user desired sub lang
+        2 = media audio lang
+    --]]
+
+    -- First: search the exact language code
+    if src_lang == 1 then
+        for i = 1, #sub_table do
+            for j = 1, #user_sub_lang do
+                if user_sub_lang[j] and sub_table[i][2] then
+                    if string.lower(user_sub_lang[j]) == string.lower(sub_table[i][2]) then
+                        return i
+                    end
+                end
+            end
+        end
+    else
+        for i = 1, #sub_table do
+            if sub_table[i][2] then
+                if string.lower(selected_audio_lang) == string.lower(sub_table[i][2]) then
+                    return i
+                end
+            end
+        end
+    end
+
+    -- Second: search the code in character strings
+    if src_lang == 1 then
+        local user_sub_lang_extracted
+
+        for i = 1, #sub_table do
+            for j = 1, #user_sub_lang do
+                if user_sub_lang[j] and sub_table[i][2] then
+                    if string.find(user_sub_lang[j], "-") then
+                        user_sub_lang_extracted = string.sub(user_sub_lang[j], 1, 2) -- Extract the 2 first characters
+                    else
+                        user_sub_lang_extracted = user_sub_lang[j]
+                    end
+
+                    if string.find(string.lower(sub_table[i][2]), string.lower(user_sub_lang_extracted)) then
+                        return i
+                    end
+                end
+            end
+        end
+    else
+        local selected_audio_lang_extracted
+
+        if string.find(selected_audio_lang, "-") then
+            selected_audio_lang_extracted = string.sub(selected_audio_lang, 1, 2) -- Extract the 2 first characters
+        else
+            selected_audio_lang_extracted = selected_audio_lang
+        end
+
+        for i = 1, #sub_table do
+            if sub_table[i][2] then
+                if string.lower(selected_audio_lang_extracted) == string.lower(sub_table[i][2]) then
+                    return i
+                end
+            end
+        end
+    end
+
+    return 0
+end
+
 local function search_forced_sub()
-    local user_sub_lang = mp.get_property_native("slang")
+    user_sub_lang = mp.get_property_native("slang")
     local forced_title = {}
 
     local function found_lang_forced_flag(sid, slang, stitle)
@@ -137,15 +220,10 @@ local function search_forced_sub()
 
     if #forced_flag > 0 then
         if user_sub_lang[1] then
-            for i = 1, #forced_flag do
-                for j = 1, #user_sub_lang do
-                    if user_sub_lang[j] and forced_flag[i][2] then
-                        if string.lower(user_sub_lang[j]) == string.lower(forced_flag[i][2]) then
-                            found_lang_forced_flag(forced_flag[i][1], forced_flag[i][2], forced_flag[i][3])
-                            return true
-                        end
-                    end
-                end
+            ret_i = is_matching_lang(1, forced_flag)
+            if ret_i ~= 0 then
+                found_lang_forced_flag(forced_flag[ret_i][1], forced_flag[ret_i][2], forced_flag[ret_i][3])
+                return true
             end
         end
     end
@@ -159,13 +237,10 @@ local function search_forced_sub()
                     if string.find(string.lower(possible_forced_title[i][3]), string.lower(value)) then
                         table.insert(forced_title, {possible_forced_title[i][1], possible_forced_title[i][2], possible_forced_title[i][3]})
                         if user_sub_lang[1] then
-                            for j = 1, #user_sub_lang do
-                                if user_sub_lang[j] and possible_forced_title[i][2] then
-                                    if string.lower(user_sub_lang[j]) == string.lower(possible_forced_title[i][2]) then
-                                        found_lang_forced_title(possible_forced_title[i][1], possible_forced_title[i][2], possible_forced_title[i][3])
-                                        return true
-                                    end
-                                end
+                            ret_i = is_matching_lang(1, forced_title)
+                            if ret_i ~= 0 then
+                                found_lang_forced_title(forced_title[ret_i][1], forced_title[ret_i][2], forced_title[ret_i][3])
+                                return true
                             end
                         end
                     end
@@ -175,28 +250,22 @@ local function search_forced_sub()
     end
 
     if mp.get_property_bool("current-tracks/audio/selected") then
-        local selected_audio_lang = mp.get_property("current-tracks/audio/lang")
+        selected_audio_lang = mp.get_property("current-tracks/audio/lang")
 
         if selected_audio_lang then
             if #forced_flag > 0 then
-                for i = 1, #forced_flag do
-                    if forced_flag[i][2] then
-                        if string.lower(selected_audio_lang) == string.lower(forced_flag[i][2]) then
-                            found_lang_audio_forced_flag(forced_flag[i][1], forced_flag[i][2], forced_flag[i][3])
-                            return true
-                        end
-                    end
+                ret_i = is_matching_lang(2, forced_flag)
+                if ret_i ~= 0 then
+                    found_lang_audio_forced_flag(forced_flag[ret_i][1], forced_flag[ret_i][2], forced_flag[ret_i][3])
+                    return true
                 end
             end
 
             if #forced_title > 0 then
-                for i = 1, #forced_title do
-                    if forced_title[i][2] then
-                        if string.lower(selected_audio_lang) == string.lower(forced_title[i][2]) then
-                            found_lang_audio_forced_title(forced_title[i][1], forced_title[i][2], forced_title[i][3])
-                            return true
-                        end
-                    end
+                ret_i = is_matching_lang(2, forced_title)
+                if ret_i ~= 0 then
+                    found_lang_audio_forced_title(forced_title[ret_i][1], forced_title[ret_i][2], forced_title[ret_i][3])
+                    return true
                 end
             end
         end
@@ -214,8 +283,6 @@ local function search_forced_sub()
 end
 
 local function search_non_forced_sub()
-    local user_sub_lang = mp.get_property_native("slang")
-
     local function found_lang_default_flag(sid, slang, stitle)
         select_sid(sid, "Default flag (with matching language)", slang, stitle)
     end
@@ -238,61 +305,44 @@ local function search_non_forced_sub()
 
     if user_sub_lang[1] then
         if #default_flag > 0 then
-            for i = 1, #default_flag do
-                for j = 1, #user_sub_lang do
-                    if user_sub_lang[j] and default_flag[i][2] then
-                        if string.lower(user_sub_lang[j]) == string.lower(default_flag[i][2]) then
-                            found_lang_default_flag(default_flag[i][1], default_flag[i][2], default_flag[i][3])
-                            return true
-                        end
-                    end
-                end
+            ret_i = is_matching_lang(1, default_flag)
+            if ret_i ~= 0 then
+                found_lang_default_flag(default_flag[ret_i][1], default_flag[ret_i][2], default_flag[ret_i][3])
+                return true
             end
         end
 
         if #other_subs > 0 then
-            for i = 1, #other_subs do
-                for j = 1, #user_sub_lang do
-                    if user_sub_lang[j] and other_subs[i][2] then
-                        if string.lower(user_sub_lang[j]) == string.lower(other_subs[i][2]) then
-                            found_lang(other_subs[i][1], other_subs[i][2], other_subs[i][3])
-                            return true
-                        end
-                    end
-                end
+            ret_i = is_matching_lang(1, other_subs)
+            if ret_i ~= 0 then
+                found_lang(other_subs[ret_i][1], other_subs[ret_i][2], other_subs[ret_i][3])
+                return true
             end
         end
     end
 
-    if mp.get_property_bool("current-tracks/audio/selected") then
-        local selected_audio_lang = mp.get_property("current-tracks/audio/lang")
+    if selected_audio_lang then
+        local function merge_tables(t1, t2)
+            local t3 = {}
 
-        if selected_audio_lang then
-            local function merge_tables(t1, t2)
-                local t3 = {}
-
-                for _,v in ipairs(t1) do
-                    table.insert(t3, v)
-                end
-
-                for _,v in ipairs(t2) do
-                    table.insert(t3, v)
-                end
-
-                return t3
+            for _,v in ipairs(t1) do
+                table.insert(t3, v)
             end
 
-            local all_non_forced = merge_tables(default_flag, other_subs)
+            for _,v in ipairs(t2) do
+                table.insert(t3, v)
+            end
 
-            if #all_non_forced > 0 then
-                for i = 1, #all_non_forced do
-                    if all_non_forced[i][2] then
-                        if string.lower(selected_audio_lang) == string.lower(all_non_forced[i][2]) then
-                            found_lang_audio(all_non_forced[i][1], all_non_forced[i][2], all_non_forced[i][3])
-                            return true
-                        end
-                    end
-                end
+            return t3
+        end
+
+        local all_non_forced = merge_tables(default_flag, other_subs)
+
+        if #all_non_forced > 0 then
+            ret_i = is_matching_lang(2, all_non_forced)
+            if ret_i ~= 0 then
+                found_lang_audio(all_non_forced[ret_i][1], all_non_forced[ret_i][2], all_non_forced[ret_i][3])
+                return true
             end
         end
     end
@@ -319,7 +369,7 @@ local function main()
             if mp.get_property_bool("current-tracks/sub/selected") then
                 mp.set_property("sid", "no")
             end
-            print("Not found only forced subtitles. Try with --script-opts=afs-sub_forced_only=no.")
+            print("Not found only forced subtitles, try with --script-opts=afs-sub_forced_only=no")
             return
         else
             search_non_forced_sub()
@@ -338,11 +388,11 @@ local function on_update_our_opts(list)
             if event_init then
                 event_init = false
             else
-                print("Script enabled.")
+                print("Script enabled")
             end
         else
             mp.set_property_bool("track-auto-selection", true)
-            print("track-auto-selection and script enabled.")
+            print("track-auto-selection and script enabled")
         end
     end
 
@@ -352,16 +402,16 @@ local function on_update_our_opts(list)
         if event_init then
             event_init = false
         else
-            print("Script disabled.")
+            print("Script disabled")
         end
     end
 
     if list.sub_forced_only and our_opts.sub_forced_only then
-        print("Only forced subtitles enabled.")
+        print("Only forced subtitles enabled")
     end
 
     if list.sub_forced_only and not our_opts.sub_forced_only then
-        print("Only forced subtitles disabled.")
+        print("Only forced subtitles disabled")
     end
 end
 
